@@ -1,6 +1,6 @@
 .admin-panel {
   padding: 1rem;
-  color: var(--dark-gray);
+  color: var(--black);
   max-height: 80vh;
   overflow-y: auto;
 }
@@ -351,7 +351,7 @@
 
 .filter-buttons .filter-btn {
   padding: 0.5rem 1rem;
-  background: white;
+  background: rgb(55, 55, 55);
   border: 2px solid #e9ecef;
   border-radius: 20px;
   cursor: pointer;

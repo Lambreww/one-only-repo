@@ -1,48 +1,54 @@
-import { useState } from 'react';
-import { useAuth } from '../context/AuthContext';
-import './Login.css';
+import { useState } from "react";
+import { useAuth } from "../context/AuthContext";
+import "./Login.css";
+
+function mapFirebaseError(err) {
+  const code = err?.code || "";
+  switch (code) {
+    case "auth/invalid-email":
+      return "Невалиден имейл адрес.";
+    case "auth/user-not-found":
+    case "auth/invalid-credential":
+    case "auth/wrong-password":
+      return "Грешен имейл или парола.";
+    case "auth/too-many-requests":
+      return "Твърде много опити. Опитайте отново по-късно.";
+    case "auth/network-request-failed":
+      return "Мрежова грешка. Проверете интернет връзката си.";
+    default:
+      return err?.message || "Възникна грешка при вход.";
+  }
+}
 
 const Login = ({ onClose, switchToRegister }) => {
   const [formData, setFormData] = useState({
-    username: '',
-    password: ''
+    email: "",
+    password: "",
   });
-  const [error, setError] = useState('');
-  const [loading, setLoading] = useState(false);
+
+  const [error, setError] = useState("");
+  const [submitting, setSubmitting] = useState(false);
+
   const { login } = useAuth();
 
   const handleChange = (e) => {
-    setFormData({
-      ...formData,
-      [e.target.name]: e.target.value
-    });
-    setError('');
+    setFormData((prev) => ({ ...prev, [e.target.name]: e.target.value }));
+    setError("");
   };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    setLoading(true);
-    setError('');
+    setSubmitting(true);
+    setError("");
 
     try {
-      await login(formData.username, formData.password);
-      onClose();
+      await login(formData.email, formData.password);
+      onClose?.();
     } catch (err) {
-      setError(err.message);
+      setError(mapFirebaseError(err));
     } finally {
-      setLoading(false);
+      setSubmitting(false);
     }
-  };
-
-  const handleDemoLogin = (role) => {
-    const demoCredentials = {
-      admin: { username: 'admin', password: 'admin123' },
-      user: { username: 'user', password: 'user123' },
-      yordan: { username: 'yordan', password: 'yordan123' },
-      petko: { username: 'petko', password: 'petko123' }
-    };
-
-    setFormData(demoCredentials[role]);
   };
 
   return (
@@ -52,23 +58,20 @@ const Login = ({ onClose, switchToRegister }) => {
         <p>Влезте в своя акаунт</p>
       </div>
 
-      {error && (
-        <div className="error-message">
-          {error}
-        </div>
-      )}
+      {error && <div className="error-message">{error}</div>}
 
       <form onSubmit={handleSubmit} className="login-form">
         <div className="form-group">
-          <label htmlFor="username">Потребителско име</label>
+          <label htmlFor="email">Имейл</label>
           <input
-            type="text"
-            id="username"
-            name="username"
-            value={formData.username}
+            type="email"
+            id="email"
+            name="email"
+            value={formData.email}
             onChange={handleChange}
             required
-            disabled={loading}
+            disabled={submitting}
+            autoComplete="username"
           />
         </div>
 
@@ -81,64 +84,24 @@ const Login = ({ onClose, switchToRegister }) => {
             value={formData.password}
             onChange={handleChange}
             required
-            disabled={loading}
+            disabled={submitting}
+            autoComplete="current-password"
           />
         </div>
 
-        <button 
-          type="submit" 
-          className="login-btn"
-          disabled={loading}
-        >
-          {loading ? 'Вход...' : 'Влез'}
+        <button type="submit" className="login-btn" disabled={submitting}>
+          {submitting ? "Вход..." : "Влез"}
         </button>
       </form>
 
-      <div className="demo-section">
-        <p className="demo-title">Бърз вход за тестване:</p>
-        <div className="demo-buttons">
-          <button 
-            type="button"
-            className="demo-btn admin"
-            onClick={() => handleDemoLogin('admin')}
-            disabled={loading}
-          >
-            Администратор
-          </button>
-          <button 
-            type="button"
-            className="demo-btn user"
-            onClick={() => handleDemoLogin('user')}
-            disabled={loading}
-          >
-            Потребител
-          </button>
-          <button 
-            type="button"
-            className="demo-btn manager"
-            onClick={() => handleDemoLogin('yordan')}
-            disabled={loading}
-          >
-            Йордан
-          </button>
-          <button 
-            type="button"
-            className="demo-btn manager"
-            onClick={() => handleDemoLogin('petko')}
-            disabled={loading}
-          >
-            Петко
-          </button>
-        </div>
-      </div>
-
       <div className="login-footer">
         <p>
-          Нямате акаунт?{' '}
-          <button 
-            type="button" 
+          Нямате акаунт?{" "}
+          <button
+            type="button"
             className="switch-btn"
             onClick={switchToRegister}
+            disabled={submitting}
           >
             Регистрирайте се
           </button>

@@ -125,7 +125,7 @@ const AdminGalleryPanel = ({ onClose }) => {
 
       {activeTab === 'manage' && (
         <div className="manage-tab">
-          <h3>Списък с снимки ({filteredImages.length})</h3>
+          <h3>Списък със снимки ({filteredImages.length})</h3>
           
           {/* Филтър по категории */}
           <div className="category-filter">
@@ -151,7 +151,7 @@ const AdminGalleryPanel = ({ onClose }) => {
                 const count = galleryImages.filter(img => img.category === category).length;
                 return (
                   <div key={category} className="stat-item">
-                    <span className="category-name">{category}</span>
+                    <span className="category-name">{category} - </span>
                     <span className="category-count">{count} снимки</span>
                   </div>
                 );

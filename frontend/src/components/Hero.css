@@ -99,4 +99,18 @@
     width: 100%;
     text-align: center;
   }
+
+.hero-advantages-btn {
+  margin-top: 5.5rem;
+  width: 100%;
+  display: flex;
+  justify-content: center;
+}
+
+.hero-buttons-center {
+  margin-top: 5.2rem;
+  display: flex;
+  justify-content: center;
+}
+
 }

@@ -1,29 +1,33 @@
-import { useState } from 'react';
-import { useAuth } from '../context/AuthContext';
-import './Login.css';
+import { useState } from "react";
+import { useAuth } from "../context/AuthContext";
+import "./Login.css";
+
+const splitName = (fullName) => {
+  const parts = fullName.trim().split(/\s+/).filter(Boolean);
+  if (parts.length === 0) return { firstName: "", lastName: "" };
+  if (parts.length === 1) return { firstName: parts[0], lastName: "" };
+  return { firstName: parts[0], lastName: parts.slice(1).join(" ") };
+};
 
 const Register = ({ onClose, switchToLogin }) => {
   const [formData, setFormData] = useState({
-    username: '',
-    email: '',
-    password: '',
-    confirmPassword: '',
-    name: ''
+    name: "",
+    email: "",
+    password: "",
+    confirmPassword: "",
   });
+
   const [errors, setErrors] = useState({});
   const [loading, setLoading] = useState(false);
   const { register } = useAuth();
 
   const handleChange = (e) => {
-    setFormData({
-      ...formData,
-      [e.target.name]: e.target.value
-    });
+    setFormData((prev) => ({ ...prev, [e.target.name]: e.target.value }));
     if (errors[e.target.name]) {
-      setErrors({
-        ...errors,
-        [e.target.name]: ''
-      });
+      setErrors((prev) => ({ ...prev, [e.target.name]: "" }));
+    }
+    if (errors.general) {
+      setErrors((prev) => ({ ...prev, general: "" }));
     }
   };
 
@@ -31,35 +35,27 @@ const Register = ({ onClose, switchToLogin }) => {
     const newErrors = {};
 
     if (!formData.name.trim()) {
-      newErrors.name = 'Името е задължително';
+      newErrors.name = "Името и фамилията са задължителни";
     } else if (formData.name.trim().length < 2) {
-      newErrors.name = 'Името трябва да е поне 2 символа';
+      newErrors.name = "Името трябва да е поне 2 символа";
     }
 
     if (!formData.email) {
-      newErrors.email = 'Имейл адресът е задължителен';
+      newErrors.email = "Имейл адресът е задължителен";
     } else if (!/\S+@\S+\.\S+/.test(formData.email)) {
-      newErrors.email = 'Имейл адресът не е валиден';
-    }
-
-    if (!formData.username) {
-      newErrors.username = 'Потребителското име е задължително';
-    } else if (formData.username.length < 3) {
-      newErrors.username = 'Потребителското име трябва да е поне 3 символа';
-    } else if (!/^[a-zA-Z0-9_]+$/.test(formData.username)) {
-      newErrors.username = 'Потребителското име може да съдържа само букви, цифри и долна черта';
+      newErrors.email = "Имейл адресът не е валиден";
     }
 
     if (!formData.password) {
-      newErrors.password = 'Паролата е задължителна';
+      newErrors.password = "Паролата е задължителна";
     } else if (formData.password.length < 6) {
-      newErrors.password = 'Паролата трябва да е поне 6 символа';
+      newErrors.password = "Паролата трябва да е поне 6 символа";
     }
 
     if (!formData.confirmPassword) {
-      newErrors.confirmPassword = 'Потвърждението на паролата е задължително';
+      newErrors.confirmPassword = "Потвърждението на паролата е задължително";
     } else if (formData.password !== formData.confirmPassword) {
-      newErrors.confirmPassword = 'Паролите не съвпадат';
+      newErrors.confirmPassword = "Паролите не съвпадат";
     }
 
     setErrors(newErrors);
@@ -68,21 +64,21 @@ const Register = ({ onClose, switchToLogin }) => {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    
-    if (!validateForm()) {
-      return;
-    }
+    if (!validateForm()) return;
 
     setLoading(true);
     setErrors({});
 
     try {
+      const { firstName, lastName } = splitName(formData.name);
+
       await register({
-        username: formData.username,
-        email: formData.email,
+        firstName,
+        lastName,
+        email: formData.email.trim(),
         password: formData.password,
-        name: formData.name.trim()
       });
+
       onClose();
     } catch (err) {
       setErrors({ general: err.message });
@@ -98,11 +94,7 @@ const Register = ({ onClose, switchToLogin }) => {
         <p>Създайте нов акаунт</p>
       </div>
 
-      {errors.general && (
-        <div className="error-message">
-          {errors.general}
-        </div>
-      )}
+      {errors.general && <div className="error-message">{errors.general}</div>}
 
       <form onSubmit={handleSubmit} className="register-form">
         <div className="form-group">
@@ -114,8 +106,8 @@ const Register = ({ onClose, switchToLogin }) => {
             value={formData.name}
             onChange={handleChange}
             disabled={loading}
-            className={errors.name ? 'error' : ''}
-            placeholder="Въведете вашето име"
+            className={errors.name ? "error" : ""}
+            placeholder="Въведете име и фамилия"
           />
           {errors.name && <span className="field-error">{errors.name}</span>}
         </div>
@@ -129,25 +121,10 @@ const Register = ({ onClose, switchToLogin }) => {
             value={formData.email}
             onChange={handleChange}
             disabled={loading}
-            className={errors.email ? 'error' : ''}
+            className={errors.email ? "error" : ""}
             placeholder="Въведете вашия имейл"
           />
           {errors.email && <span className="field-error">{errors.email}</span>}
-        </div>
-
-        <div className="form-group">
-          <label htmlFor="username">Потребителско име *</label>
-          <input
-            type="text"
-            id="username"
-            name="username"
-            value={formData.username}
-            onChange={handleChange}
-            disabled={loading}
-            className={errors.username ? 'error' : ''}
-            placeholder="Изберете потребителско име"
-          />
-          {errors.username && <span className="field-error">{errors.username}</span>}
         </div>
 
         <div className="form-group">
@@ -159,11 +136,13 @@ const Register = ({ onClose, switchToLogin }) => {
             value={formData.password}
             onChange={handleChange}
             disabled={loading}
-            className={errors.password ? 'error' : ''}
+            className={errors.password ? "error" : ""}
             placeholder="Поне 6 символа"
             minLength="6"
           />
-          {errors.password && <span className="field-error">{errors.password}</span>}
+          {errors.password && (
+            <span className="field-error">{errors.password}</span>
+          )}
         </div>
 
         <div className="form-group">
@@ -175,26 +154,24 @@ const Register = ({ onClose, switchToLogin }) => {
             value={formData.confirmPassword}
             onChange={handleChange}
             disabled={loading}
-            className={errors.confirmPassword ? 'error' : ''}
+            className={errors.confirmPassword ? "error" : ""}
             placeholder="Потвърдете паролата"
           />
-          {errors.confirmPassword && <span className="field-error">{errors.confirmPassword}</span>}
+          {errors.confirmPassword && (
+            <span className="field-error">{errors.confirmPassword}</span>
+          )}
         </div>
 
-        <button 
-          type="submit" 
-          className="register-btn"
-          disabled={loading}
-        >
-          {loading ? 'Регистрация...' : 'Регистрирай се'}
+        <button type="submit" className="register-btn" disabled={loading}>
+          {loading ? "Регистрация..." : "Регистрирай се"}
         </button>
       </form>
 
       <div className="register-footer">
         <p>
-          Вече имате акаунт?{' '}
-          <button 
-            type="button" 
+          Вече имате акаунт?{" "}
+          <button
+            type="button"
             className="switch-btn"
             onClick={switchToLogin}
             disabled={loading}

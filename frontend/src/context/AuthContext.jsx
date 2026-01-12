@@ -1,152 +1,102 @@
-import { createContext, useContext, useState, useEffect } from 'react';
+import { createContext, useContext, useEffect, useMemo, useState } from "react";
+import {
+  onAuthStateChanged,
+  signInWithEmailAndPassword,
+  createUserWithEmailAndPassword,
+  signOut,
+  updateProfile,
+} from "firebase/auth";
+import { doc, setDoc, getDoc, serverTimestamp } from "firebase/firestore";
+import { auth, db } from "../firebase/firebase";
 
-const AuthContext = createContext();
+const AuthContext = createContext(null);
 
+// eslint-disable-next-line react-refresh/only-export-components
 export const useAuth = () => {
-  const context = useContext(AuthContext);
-  if (!context) {
-    throw new Error('useAuth must be used within an AuthProvider');
-  }
-  return context;
+  const ctx = useContext(AuthContext);
+  if (!ctx) throw new Error("useAuth must be used within an AuthProvider");
+  return ctx;
 };
+
+function mapUser(fbUser, role = "user", profile = {}) {
+  if (!fbUser) return null;
+  return {
+    uid: fbUser.uid,
+    email: fbUser.email ?? "",
+    displayName: fbUser.displayName ?? "",
+    role: role ?? "user",
+    firstName: profile.firstName ?? "",
+    lastName: profile.lastName ?? "",
+  };
+}
 
 export const AuthProvider = ({ children }) => {
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    const savedUser = localStorage.getItem('user');
-    if (savedUser) {
-      setUser(JSON.parse(savedUser));
-    }
-    setLoading(false);
+    const unsub = onAuthStateChanged(auth, async (fbUser) => {
+      try {
+        if (!fbUser) {
+          setUser(null);
+          setLoading(false);
+          return;
+        }
+
+        const snap = await getDoc(doc(db, "users", fbUser.uid));
+        const data = snap.exists() ? snap.data() : null;
+
+        const role = data?.role ?? "user";
+        setUser(mapUser(fbUser, role, data ?? {}));
+      } catch  {
+        // ако Firestore не може да се чете поради rules/мрежа - поне да влезе като user
+        setUser(mapUser(fbUser, "user", {}));
+      } finally {
+        setLoading(false);
+      }
+    });
+
+    return () => unsub();
   }, []);
 
-  const predefinedUsers = [
-    {
-      id: 1,
-      username: 'admin',
-      password: 'admin123',
-      email: 'admin@jpsystems.bg',
-      role: 'admin',
-      name: 'Администратор'
-    },
-    {
-      id: 2,
-      username: 'user',
-      password: 'user123',
-      email: 'user@jpsystems.bg',
-      role: 'user',
-      name: 'Обикновен потребител'
-    },
-    {
-      id: 3,
-      username: 'yordan',
-      password: 'yordan123',
-      email: 'yordan@jpsystems.bg',
-      role: 'admin',
-      name: 'Йордан Ламбрев'
-    },
-    {
-      id: 4,
-      username: 'petko',
-      password: 'petko123',
-      email: 'petko@jpsystems.bg',
-      role: 'admin',
-      name: 'Петко Карараев'
+  const login = async (email, password) => {
+    await signInWithEmailAndPassword(auth, email, password);
+  };
+
+  const register = async ({ firstName, lastName, email, password }) => {
+    const cred = await createUserWithEmailAndPassword(auth, email, password);
+
+    const displayName = `${firstName ?? ""} ${lastName ?? ""}`.trim();
+    if (displayName) {
+      await updateProfile(cred.user, { displayName });
     }
-  ];
 
-  const login = (username, password) => {
-    return new Promise((resolve, reject) => {
-      setTimeout(() => {
-        // Проверка в predefined users
-        const foundPredefinedUser = predefinedUsers.find(
-          u => u.username === username && u.password === password
-        );
+    console.log("REGISTER UID:", cred.user.uid);
+    console.log("WRITING TO FIRESTORE users/", cred.user.uid);
 
-        if (foundPredefinedUser) {
-          const userData = { ...foundPredefinedUser };
-          delete userData.password;
-          setUser(userData);
-          localStorage.setItem('user', JSON.stringify(userData));
-          resolve(userData);
-          return;
-        }
-
-        // Проверка в регистрирани потребители
-        const savedUsers = JSON.parse(localStorage.getItem('registeredUsers') || '[]');
-        const foundRegisteredUser = savedUsers.find(
-          u => u.username === username && u.password === password
-        );
-
-        if (foundRegisteredUser) {
-          const userData = { ...foundRegisteredUser };
-          delete userData.password;
-          setUser(userData);
-          localStorage.setItem('user', JSON.stringify(userData));
-          resolve(userData);
-        } else {
-          reject(new Error('Невалидно потребителско име или парола'));
-        }
-      }, 1000);
+    await setDoc(doc(db, "users", cred.user.uid), {
+      firstName,
+      lastName,
+      email,
+      role: "user",
+      createdAt: serverTimestamp(),
     });
   };
 
-  const logout = () => {
-    setUser(null);
-    localStorage.removeItem('user');
+  const logout = async () => {
+    await signOut(auth);
   };
 
-  const register = (userData) => {
-    return new Promise((resolve, reject) => {
-      setTimeout(() => {
-        // Проверка дали потребителското име вече съществува
-        const allUsers = [
-          ...predefinedUsers,
-          ...JSON.parse(localStorage.getItem('registeredUsers') || '[]')
-        ];
-        
-        const userExists = allUsers.find(u => u.username === userData.username);
-        if (userExists) {
-          reject(new Error('Потребителското име вече съществува'));
-          return;
-        }
-
-        // Създаване на нов потребител
-        const newUser = {
-          id: Date.now(),
-          ...userData,
-          role: 'user'
-        };
-
-        // Запазване в localStorage
-        const existingUsers = JSON.parse(localStorage.getItem('registeredUsers') || '[]');
-        const updatedUsers = [...existingUsers, newUser];
-        localStorage.setItem('registeredUsers', JSON.stringify(updatedUsers));
-
-        // Автоматично влизане
-        const userWithoutPassword = { ...newUser };
-        delete userWithoutPassword.password;
-        
-        setUser(userWithoutPassword);
-        localStorage.setItem('user', JSON.stringify(userWithoutPassword));
-        resolve(userWithoutPassword);
-      }, 1000);
-    });
-  };
-
-  const value = {
-    user,
-    login,
-    logout,
-    register,
-    loading
-  };
-
-  return (
-    <AuthContext.Provider value={value}>
-      {children}
-    </AuthContext.Provider>
+  const value = useMemo(
+    () => ({
+      user,
+      loading,
+      login,
+      register,
+      logout,
+    }),
+    [user, loading]
   );
+
+  return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 };
